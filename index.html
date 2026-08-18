@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Sensr Animations</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #f4f7fa; color: #1a2c3e;
+    display: flex; align-items: center; justify-content: center;
+    -webkit-font-smoothing: antialiased;
+  }
+  .gate {
+    background: #fff; border: 1px solid #e3e8ed; border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(15,31,48,0.07);
+    padding: 36px 40px; width: 360px; text-align: center;
+  }
+  h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.4px; }
+  h1 .accent { color: #00A7E1; }
+  .sub { font-size: 12.5px; color: #7a8a9b; margin: 6px 0 22px; }
+  input {
+    width: 100%; padding: 10px 13px; font-size: 14px; font-family: inherit;
+    border: 1.5px solid #d0d7de; border-radius: 9px; outline: none;
+  }
+  input:focus { border-color: #2b8fd4; }
+  button {
+    width: 100%; margin-top: 12px; padding: 10px; font-size: 13.5px; font-weight: 600;
+    font-family: inherit; color: #fff; background: #2b8fd4;
+    border: none; border-radius: 9px; cursor: pointer;
+  }
+  button:disabled { opacity: 0.6; cursor: wait; }
+  .err { font-size: 12px; color: #d64545; margin-top: 10px; min-height: 15px; }
+</style>
+</head>
+<body>
+<div class="gate">
+  <h1>((Sensr)) <span class="accent">Animations</span></h1>
+  <div class="sub">Enter the team password to open the library</div>
+  <input type="password" id="pw" placeholder="Password" autofocus>
+  <button id="go">Unlock</button>
+  <div class="err" id="err"></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+async function unlock(password) {
+  const bytes = new Uint8Array(await (await fetch('payload.enc')).arrayBuffer());
+  const salt = bytes.slice(0, 16), iv = bytes.slice(16, 28), cipher = bytes.slice(28);
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: 600000, hash: 'SHA-256' },
+    keyMaterial, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, cipher);
+  document.open();
+  document.write(new TextDecoder().decode(plain));
+  document.close();
+}
+
+$('go').addEventListener('click', async () => {
+  const pw = $('pw').value;
+  if (!pw) return;
+  $('go').disabled = true;
+  $('err').textContent = '';
+  try {
+    await unlock(pw);
+    sessionStorage.setItem('sa-pw', pw);
+  } catch {
+    $('err').textContent = 'Wrong password.';
+    $('go').disabled = false;
+  }
+});
+$('pw').addEventListener('keydown', e => { if (e.key === 'Enter') $('go').click(); });
+
+// Same tab, same session: unlock silently.
+const saved = sessionStorage.getItem('sa-pw');
+if (saved) unlock(saved).catch(() => sessionStorage.removeItem('sa-pw'));
+</script>
+</body>
+</html>
